@@ -1,3 +1,6 @@
+## Updates on Moveit with Gripper/Vacuum Gripper:
+&ensp;&ensp;Please pay attention if you are using Moveit motion planning for xArm models with Gripper/Vacuum Gripper attached, in updates since **Jan 6, 2021**, pose command/feedback will count in the **TCP offset** of the tool, as a result in moveit configuration change. 
+
 ## Important Notice:
 &ensp;&ensp;Due to robot communication data format change, ***early users*** (xArm shipped ***before June 2019***) are encouraged to ***upgrade*** their controller firmware immediately to drive the robot normally in future updates as well as to use newly developed functions. Please contact our staff to get instructions of the upgrade process. The old version robot driver can still be available in ***'legacy'*** branch, however, it will not be updated any more.   
 
@@ -14,16 +17,17 @@
     * [5.3 xarm_controller](#53-xarm_controller)  
     * [5.4 xarm_bringup](#54-xarm_bringup)  
     * [5.5 ***xarm7_moveit_config***](#55-xarm7_moveit_config)  
-    * [5.6 xarm_planner](#56-xarm_planner)  
+    * [5.6 ***xarm_planner(Updated)***](#56-xarm_planner)  
     * [5.7 ***xarm_api/xarm_msgs***](#57-xarm_apixarm_msgs)  
         * [5.7.1 Starting xArm by ROS service (***priority for the following operations***)](#starting-xarm-by-ros-service)  
-        * [5.7.2 Joint space or Cartesian space command example](#joint-space-or-cartesian-space-command-example)
-        * [5.7.3 I/O Operations](#io-operations)  
+        * [5.7.2 Joint space or Cartesian space command example(**Updated**)](#joint-space-or-cartesian-space-command-example)
+        * [5.7.3 Tool/Controller I/O Operations](#tool-io-operations)  
         * [5.7.4 Getting status feedback](#getting-status-feedback)  
         * [5.7.5 Setting Tool Center Point Offset](#setting-tool-center-point-offset)  
         * [5.7.6 Clearing Errors](#clearing-errors)  
-        * [5.7.7 Gripper Control(***Updated***)](#gripper-control)
-        * [5.7.8 Tool Modbus communication (***new***)](#tool-modbus-communication)
+        * [5.7.7 Gripper Control](#gripper-control)
+        * [5.7.8 Vacuum Gripper Control](#vacuum-gripper-control)
+        * [5.7.9 Tool Modbus communication](#tool-modbus-communication)
 * [6. Mode Change](#6-mode-change)
     * [6.1 Mode Explanation](#61-mode-explanation)
     * [6.2 Proper way to change modes](#62-proper-way-to-change-modes)
@@ -32,6 +36,7 @@
     * [7.2 Servo_Cartesian](https://github.com/xArm-Developer/xarm_ros/tree/master/examples#2-servo_cartesian-streamed-cartesian-trajectory)
     * [7.3 Servo_Joint](https://github.com/xArm-Developer/xarm_ros/tree/master/examples#3-servo_joint-streamed-joint-space-trajectory)
     * [7.4 Dual xArm6 controlled with one moveGroup node](https://github.com/xArm-Developer/xarm_ros/tree/master/examples#4-dual-xarm6-controlled-with-one-movegroup-node)
+    * [7.5 An example of demonstrating redundancy resolution using MoveIt](https://github.com/xArm-Developer/xarm_ros/tree/master/examples/xarm7_redundancy_res)
 
 # 1. Introduction
    &ensp;&ensp;This repository contains the 3D models of xArm series and demo packages for ROS development and simulations.Developing and testing environment: Ubuntu 16.04 + ROS Kinetic Kame + Gazebo 9.  
@@ -49,6 +54,7 @@
    * Add demo to control dual xArm6 through Moveit.
    * Add xArm Gripper action control.
    * Add xArm-with-gripper Moveit development packages.
+   * Add vacuum gripper model and xArm-with-vacuum-gripper Moveit development packages (under /examples dir).
 
 # 3. Preparations before using this package
 
@@ -67,8 +73,9 @@ Moveit tutorial: <http://docs.ros.org/kinetic/api/moveit_tutorials/html/>
 &ensp;&ensp;In Gazebo simulator, navigate through the model database for 'table' item, drag and place the 3D model inside the virtual environment. It will then be downloaded locally, as 'table' is needed for running the demo.
 
 ## 3.4 Install "mimic_joint_plugin" for xArm Gripper simulation in Gazebo
-&ensp;&ensp;If simulating xArm Gripper in Gazebo is needed, [**mimic_joint_plugin**](https://github.com/roboticsgroup/roboticsgroup_gazebo_plugins) by courtesy of Konstantinos Chatzilygeroudis (@costashatz) needs to be installed in order to make the mimic joints behave normally in Gazebo. Usage of this plugin is inspired by [this tutorial](https://github.com/mintar/mimic_joint_gazebo_tutorial) from @mintar.
+&ensp;&ensp;If simulating xArm Gripper in Gazebo is needed, [**mimic_joint_plugin**](https://github.com/roboticsgroup/roboticsgroup_gazebo_plugins) by courtesy of Konstantinos Chatzilygeroudis (@costashatz) needs to be installed in order to make the mimic joints behave normally in Gazebo. Usage of this plugin is inspired by [this tutorial](https://github.com/mintar/mimic_joint_gazebo_tutorial) from @mintar.   
 
+12/22/2020: Refer to issue #53, Please Note this plugin has recently been **deprecated**, if you plan to use [new version](https://github.com/roboticsgroup/roboticsgroup_upatras_gazebo_plugins), please change "libroboticsgroup_gazebo_mimic_joint_plugin.so" to "libroboticsgroup_upatras_gazebo_mimic_joint_plugin.so" in file: xarm_ros/xarm_gripper/urdf/xarm_gripper.gazebo.xacro  
 
 # 4. Getting started with 'xarm_ros'
    
@@ -113,10 +120,11 @@ $ roslaunch xarm_description xarm7_rviz_display.launch
 
 ## 4.7 Run the demo in Gazebo simulator
    ```bash
-   $ roslaunch xarm_gazebo xarm7_beside_table.launch [run_demo:=true] [add_gripper:=true]
+   $ roslaunch xarm_gazebo xarm7_beside_table.launch [run_demo:=true] [add_gripper:=true] [add_vacuum_gripper:=true] 
    ```
 &ensp;&ensp;Add the "run_demo" option if you wish to see a pre-programed loop motion in action. The command trajectory is written in xarm_controller\src\sample_motion.cpp. And the trajectory in this demo is controlled by pure position interface.   
-&ensp;&ensp;Add the "add_gripper" option if you want to see the xArm Gripper attached at the tool end.
+&ensp;&ensp;Add the "add_gripper" option if you want to see the xArm Gripper attached at the tool end.  
+&ensp;&ensp;Add the "add_vacuum_gripper" option if you want to see the xArm Vacuum Gripper attached at the tool end. Please note ONLY ONE end effector can be attached.  
 
 # 5. Package description & Usage Guidance
    
@@ -154,7 +162,9 @@ $ roslaunch xarm_description xarm7_rviz_display.launch
    ```bash
    $ roslaunch xarm7_gripper_moveit_config xarm7_gripper_moveit_gazebo.launch
    ```
-   If you have a satisfied motion planned in Moveit!, hit the "Execute" button and the virtual arm in Gazebo will execute the trajectory.
+   If you have a satisfied motion planned in Moveit!, hit the "Execute" button and the virtual arm in Gazebo will execute the trajectory.  
+
+   3. If **xArm vacuum gripper needs to be attached**, just replace "gripper" with "vacuum_gripper" in above gripper example.  
 
 #### To run Moveit! motion planner to control the real xArm:  
    First make sure the xArm and the controller box are powered on, then execute:  
@@ -170,24 +180,33 @@ $ roslaunch xarm_description xarm7_rviz_display.launch
    ```
    It is better to use this package with real xArm gripper, since Moveit planner will take the gripper into account for collision detection.  
 
+#### To run Moveit! motion planner to control the real xArm with xArm Vacuum Gripper attached:  
+   First make sure the xArm and the controller box are powered on, then execute:  
+   ```bash
+   $ roslaunch xarm7_vacuum_gripper_moveit_config realMove_exec.launch robot_ip:=<your controller box LAN IP address>
+   ```
+   It is better to use this package with real xArm vacuum gripper, since Moveit planner will take the vacuum gripper into account for collision detection.  
 
 ## 5.6 xarm_planner:
 &ensp;&ensp;This implemented simple planner interface is based on move_group from Moveit! and provide ros service for users to do planning & execution based on the requested target, user can find detailed instructions on how to use it inside [***xarm_planner package***](./xarm_planner/).  
 #### To launch the xarm simple motion planner together with the real xArm:  
 ```bash
-   $ roslaunch xarm_planner xarm_planner_realHW.launch robot_ip:=<your controller box LAN IP address> robot_dof:=<7|6|5>
+   $ roslaunch xarm_planner xarm_planner_realHW.launch robot_ip:=<your controller box LAN IP address> robot_dof:=<7|6|5> add_(vacuum_)gripper:=<true|false>
 ```
-Argument 'robot_dof' specifies the number of joints of your xArm (default is 7).  
+Argument 'robot_dof' specifies the number of joints of your xArm (default is 7). Now xarm_planner supports model with gripper or vacuum_gripper attached. Please specify "**add_gripper**" or "**add_vacuum_gripper**" argument if needed.    
 
 ## 5.7 xarm_api/xarm_msgs:
 &ensp;&ensp;These two packages provide user with the ros service wrapper of the functions in xArm SDK. There are 6 types of motion command (service names) supported:  
 * <font color=blue>move_joint:</font> joint space point to point command, given target joint angles, max joint velocity and acceleration. Corresponding function in SDK is "set_servo_angle()".  
 * <font color=blue>move_line:</font> straight-line motion to the specified Cartesian Tool Centre Point(TCP) target. Corresponding function in SDK is "set_position()"[blending radius not specified].  
-* <font color=blue>move_lineb:</font> a list of via points followed by target Cartesian point. Each segment is straight-line with Arc blending at the via points, to make velocity continuous. Corresponding function in SDK is "set_position()"[blending radius specified].  
+* <font color=blue>move_lineb:</font> a list of via points followed by target Cartesian point. Each segment is straight-line with Arc blending at the via points, to make velocity continuous. Corresponding function in SDK is "set_position()"[blending radius specified]. Please refer to [move_test.cpp](./xarm_api/test/move_test.cpp) for example code.   
 * <font color=blue>move_line_tool:</font> straight-line motion based on the **Tool coordinate system** rather than the base system. Corresponding function in SDK is "set_tool_position()".  
 Please ***keep in mind that*** before calling the 4 motion services above, first set robot mode to be 0, then set robot state to be 0, by calling relavent services. Meaning of the commands are consistent with the descriptions in product ***user manual***, other xarm API supported functions are also available as service call. Refer to [xarm_msgs package](./xarm_msgs/) for more details and usage guidance.  
 
-* <font color=blue>move_servo_cart/move_servoj:</font> streamed high-frequency trajectory command execution in Cartesian space or joint space. Corresponding functions in SDK are set_servo_cartesian() and set_servo_angle_j(). An alternative way to implement <font color=red>velocity control</font>. These two services operate the robot in mode 1. Special **RISK ASSESMENT** is required before using them. Please read the guidance carefully at [chapter 7.2-7.3](https://github.com/xArm-Developer/xarm_ros/tree/master/examples#2-servo_cartesian-streamed-cartesian-trajectory)
+* <font color=blue>move_line_aa:</font> straight-line motion, with orientation expressed in **Axis-angle** rather than roll-pitch-yaw angles. Please refer to xArm user manual for detailed explanation of axis-angle before using this command.   
+
+* <font color=blue>move_servo_cart/move_servoj:</font> streamed high-frequency trajectory command execution in Cartesian space or joint space. Corresponding functions in SDK are set_servo_cartesian() and set_servo_angle_j(). An alternative way to implement <font color=red>velocity control</font>. These two services operate the robot in mode 1. Special **RISK ASSESMENT** is required before using them. Please read the guidance carefully at [chapter 7.2-7.3](https://github.com/xArm-Developer/xarm_ros/tree/master/examples#2-servo_cartesian-streamed-cartesian-trajectory).  
+
 
 #### Starting xArm by ROS service:
 
@@ -228,6 +247,27 @@ $ rosservice call /xarm/move_line [250,100,300,3.14,0,0] 200 2000 0 0
 ```bash
 $ rosservice call /xarm/move_line_tool [50,100,100,0,0,0] 200 2000 0 0
 ```
+##### 4. Cartesian space motion in Axis-angle orientation:
+&ensp;&ensp;Corresponding service for Axis-angle motion is [MoveAxisAngle.srv](./xarm_msgs/srv/MoveAxisAngle.srv). Please pay attention to the last two arguments: "**coord**" is 0 for motion with respect to (w.r.t.) Arm base coordinate system, and 1 for motion w.r.t. Tool coordinate system. "**relative**" is 0 for absolute target position w.r.t. specified coordinate system, and 1 for relative target position.  
+&ensp;&ensp;For example: to move 1.0 radian relatively around tool-frame Z-axis: 
+```bash
+$ rosservice call /xarm/move_line_aa "pose: [0, 0, 0, 0, 0, 1.0]
+mvvelo: 30.0
+mvacc: 100.0
+mvtime: 0.0
+coord: 1
+relative: 1" 
+ret: 0
+message: "move_line_aa, ret = 0"
+```
+Or
+```bash
+$ rosservice call /xarm/move_line_aa [0,0,0,0,0,1.0] 30.0 100.0 0.0 1 1
+```   
+&ensp;&ensp;"**mvtime**" is not meaningful in this command, just set it to 0. Another example: in base-frame, to move 122mm relatively along Y-axis, and rotate around X-axis for -0.5 radians:  
+```bash
+$ rosservice call /xarm/move_line_aa [0,122,0,-0.5,0,0] 30.0 100.0 0.0 0 1  
+```
 
 #### Motion service Return:
 &ensp;&ensp;Please Note the above motion services will **return immediately** by default. If you wish to return until actual motion is finished, set the ros parameter **"/xarm/wait_for_finish"** to be **true** in advance. That is:  
@@ -237,6 +277,7 @@ $ rosparam set /xarm/wait_for_finish true
 &ensp;&ensp;Upon success, 0 will be returned. If any error occurs, 1 will be returned.
 
 #### Tool I/O Operations:
+
 &ensp;&ensp;We provide 2 digital, 2 analog input port and 2 digital output signals at the end I/O connector.  
 ##### 1. To get current 2 DIGITAL input states:  
 ```bash
@@ -252,19 +293,49 @@ $ rosservice call /xarm/set_digital_out 2 1  (Setting output 2 to be 1)
 ```
 &ensp;&ensp;You have to make sure the operation is successful by checking responding "ret" to be 0.
 
+#### Controller I/O Operations:
+
+&ensp;&ensp;We provide 8 digital input and 8 digital output ports at controller box for general usage.  
+
+##### 1. To get one of the controller DIGITAL input state:  
+```bash
+$ rosservice call /xarm/get_controller_din io_num (Notice: from 1 to 8, for CI0~CI7)  
+```
+##### 2. To set one of the controller DIGITAL output:
+```bash
+$ rosservice call /xarm/set_controller_dout io_num (Notice: from 1 to 8, for CO0~CO7) logic (0 or 1) 
+```
+&ensp;&ensp;For example:  
+```bash
+$ rosservice call /xarm/set_controller_dout 5 1  (Setting output 5 to be 1)
+```
+##### 3. To get one of the controller ANALOG input:
+```bash
+$ rosservice call /xarm/get_controller_ain port_num  (Notice: from 1 to 2, for AI0~AI1)
+```
+##### 4. To set one of the controller ANALOG output:
+```bash
+$ rosservice call /xarm/set_controller_aout port_num (Notice: from 1 to 2, for AO0~AO1) analog_value
+```
+&ensp;&ensp;For example:  
+```bash
+$ rosservice call /xarm/set_controller_aout 2 3.3  (Setting port AO1 to be 3.3)
+```
+&ensp;&ensp;You have to make sure the operation is successful by checking responding "ret" to be 0.
+
 #### Getting status feedback:
 &ensp;&ensp;Having connected with a real xArm robot by running 'xarm7_server.launch', user can subscribe to the topic ***"xarm/xarm_states"*** for feedback information about current robot states, including joint angles, TCP position, error/warning code, etc. Refer to [RobotMsg.msg](./xarm_msgs/msg/RobotMsg.msg) for content details.  
-&ensp;&ensp;Another option is subscribing to ***"/joint_states"*** topic, which is reporting in [JointState.msg](http://docs.ros.org/jade/api/sensor_msgs/html/msg/JointState.html), however, currently ***only "position" field is valid***; "velocity" is non-filtered numerical differentiation based on 2 adjacent position data, so it is just for reference; and we do not provide "effort" feedback yet.
-&ensp;&ensp;In consideration of performance, current update rate of above two topics are set at ***10Hz***.  
+&ensp;&ensp;Another option is subscribing to ***"/joint_states"*** topic, which is reporting in [JointState.msg](http://docs.ros.org/jade/api/sensor_msgs/html/msg/JointState.html), however, currently ***only "position" field is valid***; "velocity" is non-filtered numerical differentiation based on 2 adjacent position data, and "effort" feedback are current-based estimated values, not from direct torque sensor, so they are just for reference.
+&ensp;&ensp;In consideration of performance, current update rate of above two topics are set at ***5Hz***.  
 
 #### Setting Tool Center Point Offset:
-&ensp;&ensp;The tool tip point offset values can be set by calling service "/xarm/set_tcp_offset". Refer to the figure below, please note this offset coordinate is expressed with respect to ***initial tool frame*** (Frame B), which is located at flange center, with roll, pitch, yaw rotations of (PI, 0, 0) from base frame (Frame A).   
+&ensp;&ensp;The tool tip point offset values can be set by calling service "/xarm/set_tcp_offset". Refer to the figure below, please note this offset coordinate is expressed with respect to ***default tool frame*** (Frame B), which is located at flange center, with roll, pitch, yaw rotations of (PI, 0, 0) from base frame (Frame A).   
 ![xArmFrames](./doc/xArmFrames.png)  
 &ensp;&ensp;For example:  
 ```bash
 $ rosservice call /xarm/set_tcp_offset 0 0 20 0 0 0
 ```
-&ensp;&ensp;This is to set tool frame position offset (x = 0 mm, y = 0 mm, z = 20 mm), and orientation (RPY) offset of ( 0, 0, 0 ) radians with respect to initial tool frame (Frame B in picture). ***Remember to set this offset each time the controller box is restarted !*** 
+&ensp;&ensp;This is to set tool frame position offset (x = 0 mm, y = 0 mm, z = 20 mm), and orientation (RPY) offset of ( 0, 0, 0 ) radians with respect to initial tool frame (Frame B in picture). ***Note this offset might be overwritten by xArm Stdudio if it is not consistent with the default value set in studio!*** It is recommended to do the same TCP default offset configuration in xArm studio if you want to use it alongside with ros service control.  
 
 #### Clearing Errors:
 &ensp;&ensp;Sometimes controller may report error or warnings that would affect execution of further commands. The reasons may be power loss, position/speed limit violation, planning errors, etc. It needs additional intervention to clear. User can check error code in the message of topic ***"xarm/xarm_states"*** . 
@@ -327,6 +398,20 @@ goal:
 $ rosrun xarm_gripper gripper_client 500 1500 
 ```
 
+#### Vacuum Gripper Control:
+&ensp;&ensp; If Vacuum Gripper (from UFACTORY) is attached to the tool end, the following service can be called to operate the vacuum gripper.  
+
+&ensp;&ensp;To turn on:  
+```bash
+$ rosservice call /xarm/vacuum_gripper_set 1
+```
+&ensp;&ensp;To turn off:  
+```bash
+$ rosservice call /xarm/vacuum_gripper_set 0
+```
+&ensp;&ensp;0 will be returned upon successful execution.  
+
+
 #### Tool Modbus communication:
 If modbus communication with the tool device is needed, please first set the proper baud rate and timeout parameters through the "xarm/config_tool_modbus" service (refer to [ConfigToolModbus.srv](/xarm_msgs/srv/ConfigToolModbus.srv)). For example: 
 ```bash
@@ -371,7 +456,10 @@ $ rosservice call /xarm/set_mode 2
 
 $ rosservice call /xarm/set_state 0
 ```
-&ensp;&ensp;The above operations can also be done by calling relavant xArm SDK functions.
+&ensp;&ensp;The above operations can also be done by calling relavant xArm SDK functions.   
+
+***Known issue:*** Due to current controller (v1.6.5 and before) logic, ***it will fail hen switching directly between mode 1 and mode 2, you have to switch to mode 0 first then switch again to another non-zero mode.*** We will try to fix this issue in next controller firmware updates.  
+
 
 # 7. Other Examples
 &ensp;&ensp;There are some other application demo examples in the [example package](./examples), which will be updated in the future, feel free to explore it.
